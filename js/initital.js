@@ -151,7 +151,7 @@ require(['jquery', 'peaks'], function ($, Peaks) {
         // tetxarea监听以修改字数等信息
         $('#' + textId + ' textarea').on('propertychange input', function () {
             // TODO more accurate
-            var wordsCount = $(this).val().split(/\s+/).length;
+            var wordsCount = $(this).val().replace(/\s+$/, '').split(/\s+/).length;
             globalSegments[textId].wordsCount = wordsCount;
             var alltime = globalSegments[textId].alltime;
             var wps = alltime ? Math.round(wordsCount / alltime * 100) / 100 : 0;
