@@ -132,8 +132,15 @@ define(['jquery', 'peaks', 'utility'], function ($, peaks, utility) {
      *
      * @param {Object} instance 实例
      */
-    segmentPart.deleteSegment = function (instance) {
-        // 删除
+    segmentPart.deleteSegment = function (instance, segmentId) {
+        // 删除当前点击的segment
+        var allSegments = instance.segments.getSegments();
+        for (var i = 0, len = allSegments.length; i < len; i++) {
+            var seg = allSegments[i];
+            if (segmentId === seg.segmentId) {
+                instance.segments.remove(seg);
+            }
+        }
     };
 
     /**
@@ -184,6 +191,7 @@ define(['jquery', 'peaks', 'utility'], function ($, peaks, utility) {
         console.log(nextSegment);
         for (var i = 0, len = allSegments.length; i < len; i++) {
             var seg = allSegments[i];
+            // TODO这样修改不了就直接remove掉再add
             if (prevSegment && seg.id === prevSegment.id) {
                 if (seg.endTime > segment.startTime) {
                     seg.endTime = segment.startTime;   
