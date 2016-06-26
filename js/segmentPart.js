@@ -71,9 +71,13 @@ define(['jquery', 'peaks', 'utility'], function ($, peaks, utility) {
      */
     var insertSegment = function (segment) {
         // 数组为空的话直接push
-        if (!orderedSegments.length) {  
+        if (!orderedSegments.length) {
+            segment.pos = 0;
             orderedSegments.push(segment);
             return;
+        }
+        if (!segment.segmentId) {
+            segment.segmentId = 'b' + new Date().getTime();
         }
         var i = 0, len = orderedSegments.length;
         while (i < len && segment.startTime > orderedSegments[i].startTime) {
@@ -82,7 +86,9 @@ define(['jquery', 'peaks', 'utility'], function ($, peaks, utility) {
         // 从i开始整体后移
         for (var j = len - 1; j >= i; j--) {
             orderedSegments[j + 1] = orderedSegments[j];
+            orderedSegments[j + 1].pos = j + 1;
         }
+        segment.pos = i;
         orderedSegments[i] = segment;
     };
 
@@ -103,6 +109,56 @@ define(['jquery', 'peaks', 'utility'], function ($, peaks, utility) {
     };
 
     /**
+     * 对片段进行处理
+     */
+    segmentPart.processSegments = function (instance, segment) {
+        var startTime = segment.startTime;
+        var endTime = segment.endTime;
+        for (var i = 0, len = orderedSegments.length; i < len; i++) {
+            var seg = orderedSegments[i];
+            var nextSeg = '';
+            if (orderedSegments[i + 1]) {
+                nextSeg = orderedSegments[i + 1];
+            }
+            // 当点击片段中间的某一处时，提示是否删除
+            if (startTime < seg.endTime && startTime > seg.startTime) {
+                if (nextSeg && endTime < nextSeg.endTime && endTime > nextSeg.startTime) {
+                    if (confirm('是否删除前后两个片段？')) {    
+                        this.deleteSegment(instance, seg.segmentId);
+                        len--;
+                        this.deleteSegment(instance, nextSeg.segmentId);
+                        len--;
+                    }
+                    else {
+                        return false;
+                    }
+                }
+                else {
+                    if (confirm('是否删除前一个片段？')) {
+                        this.deleteSegment(instance, seg.segmentId);
+                        len--;
+                    }
+                    else {
+                        return false;
+                    }    
+                }
+                
+            }
+            // 当点击空白区域，但是向后不足1s钟时提示，删掉后面的
+            if (endTime < seg.endTime && endTime > seg.startTime) {
+                if (confirm('空白区域不足1s钟，是否删除后一个片段？')) {
+                    this.deleteSegment(instance, seg.segmentId);
+                    len--;
+                }
+                else {
+                    return false;  
+                }
+            }
+        }
+        return true;
+    };
+
+    /**
      * 添加片段
      * 
      * @param {Object} instance 实例对象
@@ -119,11 +175,22 @@ define(['jquery', 'peaks', 'utility'], function ($, peaks, utility) {
               editable: true
             }
         }
-        instance.segments.add([segment]);
+        // 如果空白的地方小于1秒添加不成功提示删除后面的片断
+        var startTime = segment.startTime;
+        var endTime = segment.endTime;
+        var allSegments = instance.segments.getSegments();
+        if (this.processSegments(instance, segment)) {
+            instance.segments.add([segment]);   
+            // TODO调用textarea接口添加textarea
+            addTextArea(instance);
+        }
+        for (var i = 0, len = allSegments.length; i < len; i++) {
+            if (!allSegments[i].segmentId) {
+                allSegments[i].segmentId = 'b' + new Date().getTime();
+            }
+        }
         // 添加后重新排序
         this.sortSegments(instance);
-        // TODO调用textarea接口添加textarea
-        addTextArea(instance);
     };
 
 
@@ -139,6 +206,8 @@ define(['jquery', 'peaks', 'utility'], function ($, peaks, utility) {
             var seg = allSegments[i];
             if (segmentId === seg.segmentId) {
                 instance.segments.remove(seg);
+                this.sortSegments(instance);
+                len--;
             }
         }
     };
@@ -153,25 +222,12 @@ define(['jquery', 'peaks', 'utility'], function ($, peaks, utility) {
         if (!tag) {
             tag = 1;
         }
-        for (var i = 0, len = orderedSegments.length; i < len; i++) {
-            if (orderedSegments[i].id === segment.id) {
-                var desPos = i + tag;
-                if (desPos >= 0 && desPos < len) {
-                    if ((segment.startTime < orderedSegments[desPos].startTime 
-                        && segment.endTime < orderedSegments[desPos].startTime)
-                        || (orderedSegments[desPos].startTime < segment.startTime 
-                            && orderedSegments[desPos].endTime < segment.startTime)) {
-                        return ''; 
-                    }
-                    else {
-                        return orderedSegments[desPos];    
-                    }
-                }
-                else {
-                    return '';
-                }
-                
-            }
+        var index = segment.pos + tag;
+        if (index < 0 || index >= orderedSegments.length) {
+            return '';
+        }
+        else {
+            return orderedSegments[index];
         }
     };
 
@@ -181,30 +237,28 @@ define(['jquery', 'peaks', 'utility'], function ($, peaks, utility) {
      * @param {Object} instance 实例对象
      * @param {Object} segment getSegments()中的片段
      */
-    segmentPart.ajustSegments = function (instance, segment) {
+    segmentPart.moveSegment = function (instance, segment) {
         var allSegments = instance.segments.getSegments();
         this.sortSegments(instance);
         // 找到前后两个片段，调整前面片段的endtime，调整后面片段的starttime
         var prevSegment = this.getNeighborSegment(segment, -1);
         var nextSegment = this.getNeighborSegment(segment, 1);
-        console.log(prevSegment);
-        console.log(nextSegment);
-        for (var i = 0, len = allSegments.length; i < len; i++) {
-            var seg = allSegments[i];
-            // TODO这样修改不了就直接remove掉再add
-            if (prevSegment && seg.id === prevSegment.id) {
-                if (seg.endTime > segment.startTime) {
-                    seg.endTime = segment.startTime;   
-                }
-            }
-            if (nextSegment && seg.id === nextSegment.id) {
-                if (seg.startTime < segment.endTime) {
-                    seg.startTime = segment.endTime;   
-                }
-            }
+        if (prevSegment) {
+            if (segment.startTime <= prevSegment.startTime) {
+                // 阻止继续拖拽
+                segment.overview.inMarker.attrs.draggable = false;
+                return false;
+            }   
         }
+        if (nextSegment) {
+            if (segment.endTime >= nextSegment.startTime) {
+                // 阻止继续拖拽
+                segment.overview.outMarker.attrs.draggable = false;
+                return false;
+            }   
+        }
+        return true;
     };
-
     /**
      * 拖动时间轴时进行的操作
      * 
@@ -213,9 +267,13 @@ define(['jquery', 'peaks', 'utility'], function ($, peaks, utility) {
      */
     segmentPart.draggSegment = function (instance, segment) {
         // 调整前后有重合的时间轴
-        this.ajustSegments(instance, segment);
-        // 更新对应textarea的字段
-        utility.updateData(segment);
+        //this.ajustSegments(instance, segment);
+
+        // 如果触碰到邻居就停止
+        if (this.moveSegment(instance, segment)) {
+            // 更新对应textarea的字段
+            utility.updateData(segment);
+        }
     };
     return segmentPart;
 })

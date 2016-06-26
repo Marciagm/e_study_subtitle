@@ -1,6 +1,6 @@
 requirejs.config({
     paths: {
-      peaks: 'threeParty/peaks.min',
+      peaks: 'threeParty/peaks',
       jquery: "threeParty/jquery-2.1.4.min",
       utility: 'js/utility',
       segmentPart: 'js/segmentPart',
@@ -55,10 +55,11 @@ require(['jquery', 'peaks', 'segmentPart', 'utility'], function ($, Peaks, segme
     var peaksInstance = Peaks.init(options);
   
     peaksInstance.on('segments.dragged', function (segment) {
-        // change content TODO容错处理
-        segmentPart.draggSegment(peaksInstance, segment); 
+      console.log(segment);
+      segmentPart.draggSegment(peaksInstance, segment);
+      //peaksInstance.waveform.segments.updateSegments();
     })
     peaksInstance.on('dbclickAddSegment', function () {
-      segmentPart.addSegment(peaksInstance);
+       segmentPart.addSegment(peaksInstance);
     })
 })
