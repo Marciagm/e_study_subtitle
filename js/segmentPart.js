@@ -244,18 +244,21 @@ define(['jquery', 'peaks', 'utility'], function ($, peaks, utility) {
         var prevSegment = this.getNeighborSegment(segment, -1);
         var nextSegment = this.getNeighborSegment(segment, 1);
         if (prevSegment) {
-            if (segment.startTime <= prevSegment.startTime) {
+            if (segment.startTime <= prevSegment.endTime) {
                 // 阻止继续拖拽
-                segment.overview.inMarker.attrs.draggable = false;
+                segment.zoom.inMarker.attrs.draggable = false;
+                //console.log(segment);
                 return false;
-            }   
+            }
+            segment.zoom.inMarker.attrs.draggable = true;
         }
         if (nextSegment) {
             if (segment.endTime >= nextSegment.startTime) {
                 // 阻止继续拖拽
-                segment.overview.outMarker.attrs.draggable = false;
+                segment.zoom.outMarker.attrs.draggable = false;
                 return false;
-            }   
+            }
+            segment.zoom.outMarker.attrs.draggable = true;
         }
         return true;
     };
@@ -268,13 +271,13 @@ define(['jquery', 'peaks', 'utility'], function ($, peaks, utility) {
     segmentPart.draggSegment = function (instance, segment) {
         // 调整前后有重合的时间轴
         //this.ajustSegments(instance, segment);
-
         // 如果触碰到邻居就停止
         if (this.moveSegment(instance, segment)) {
             // 更新对应textarea的字段
             utility.updateData(segment);
         }
     };
+    
     return segmentPart;
 })
 // 提出来封装成单独的模块
